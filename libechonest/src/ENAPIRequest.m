@@ -34,7 +34,8 @@
 #import "ENAPI.h"
 #import "ENSigner.h"
 #import "NSObject+JSON.h"
-#import "asi-http-request/ASIHTTPRequest.h"
+#import <Foundation/NSURLRequest.h>
+#import <Foundation/NSURLConnection.h>
 
 @interface ENAPIRequest()
 
@@ -44,20 +45,31 @@
 - (NSString *)_generateNonce:(NSInteger)timestamp;
 - (NSString *)_constructBaseSignatureForOAuth;
 - (void)_includeOAuthParams;
+- (void)_requestFinished;
+- (void)_requestFailed;
 
-@property (retain) ASIHTTPRequest *request;
+@property (retain) NSHTTPURLResponse *internalResponse;
+@property (retain) NSError *internalError;
+@property (retain) NSMutableURLRequest *request;
+@property (assign) NSMutableData *receivedData;
 @property (retain,readwrite) NSMutableDictionary *params;
 @property (retain) NSDictionary *_responseDict;
+@property (retain) NSString *_responseString;
 @property (assign) BOOL isAPIRequest;
 @property (retain) NSString *analysisURL;
 @end
 
 @implementation ENAPIRequest
-@synthesize delegate, response, _responseDict, endpoint;
+@synthesize delegate, response, _responseDict, _responseString, endpoint;
 @synthesize request, params;
+@synthesize connection;
 @synthesize userInfo;
 @synthesize isAPIRequest;
 @synthesize analysisURL;
+@synthesize receivedData;
+@synthesize complete = _complete;
+@synthesize internalResponse = _internalResponse;
+@synthesize internalError = _internalError;
 
 + (ENAPIRequest *)requestWithEndpoint:(NSString *)endpoint_ {
     return [[[ENAPIRequest alloc] initWithEndpoint:endpoint_] autorelease];
@@ -102,19 +114,35 @@
     [endpoint release];
     [userInfo release];
     [analysisURL release];
+    [connection release];
+    [_internalError release];
+    [receivedData release];
     [super dealloc];
 }
 
 - (void)startSynchronous {
     [self _prepareToStart];
-    self.request.delegate = self;
-    [self.request startSynchronous];
+
+    NSData *data = [NSURLConnection sendSynchronousRequest:self.request
+                                         returningResponse:&_internalResponse
+                                                     error:&_internalError];
+
+    _responseString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+
+    if (nil == _internalError) {
+        [self _requestFinished];
+    } else {
+        [self _requestFailed];
+    }
 }
 
 - (void)startAsynchronous {
     [self _prepareToStart];
-    self.request.delegate = self;
-    [self.request startAsynchronous];
+
+    self.connection = [NSURLConnection connectionWithRequest:self.request
+                                                    delegate:self];
+
+    [self.connection start];
 }
 
 - (void)setValue:(id)value forParameter:(NSString *)param {
@@ -134,33 +162,29 @@
 }
 
 - (void)cancel {
-    [self.request clearDelegatesAndCancel];
-}
-
-- (BOOL)complete {
-    return self.request.complete;
+    [self.connection cancel];
 }
 
 #pragma mark - Properties
 
 - (NSDictionary *)response {
     if (nil == _responseDict) {
-        NSDictionary *dict = [self.request.responseString JSONValue];
+        NSDictionary *dict = [self.responseString JSONValue];
         _responseDict = [dict retain];
     }
     return _responseDict;
 }
 
 - (NSString *)responseString {
-    return self.request.responseString;
+    return _responseString;
 }
 
 - (NSInteger)responseStatusCode {
-    return self.request.responseStatusCode;
+    return [self.internalResponse statusCode];
 }
 
 - (NSError *)error {
-    return self.request.error;
+    return self.internalError;
 }
 
 - (NSUInteger)echonestStatusCode {
@@ -172,35 +196,64 @@
 }
 
 - (NSURL *)requestURL {
-    return self.request.url;
+    return [self.request URL];
 }
 
-#pragma mark - ASIHTTPRequestDelegate Methods
+#pragma mark - NSURLConnection Delegate Methods
 
-- (void)requestFinished:(ASIHTTPRequest *)request {
+- (void) connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response_ {
+    self.internalResponse = (NSHTTPURLResponse *)response_;
+    self.receivedData = [[NSMutableData alloc] initWithLength:0];
+}
+
+- (void) connection:(NSURLConnection *)connection didReceiveData:(NSData *)data_ {
+    [self.receivedData appendData:data_];
+}
+
+- (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error_ {
+    _complete = YES;
+    self.internalError = error_;
+    // we're done with mutable data holder
+    [self.receivedData release];
+    // deliver the bad news...
+    [self _requestFailed];
+}
+
+- (void)connectionDidFinishLoading:(NSURLConnection *)connection {
+    _complete = YES;
+
+    _responseString = [[NSString alloc] initWithData:self.receivedData
+                                            encoding:NSUTF8StringEncoding];
+    // we're done with mutable data holder
+    [self.receivedData release];
+
+    [self _requestFinished];
+    // Should we release the connection here? [AJL]
+}
+
+#pragma mark - Private Methods
+
+- (void)_requestFinished {
     if ([delegate respondsToSelector:@selector(requestFinished:)]) {
         [delegate requestFinished:self];
     }
 }
 
-- (void)requestFailed:(ASIHTTPRequest *)request {
+- (void)_requestFailed {
     if([delegate respondsToSelector:@selector(requestFailed:)]) {
         [delegate requestFailed:self];
     }
 }
 
-#pragma mark - Private Methods
-
 - (void)_prepareToStart {
     if (nil != self.analysisURL) {
-        self.request = [ASIHTTPRequest requestWithURL:[NSURL URLWithString:self.analysisURL]];
+        self.request = [NSURLRequest requestWithURL:[NSURL URLWithString:self.analysisURL]];
     } else {
         // add OAuth parameter if we're hitting a secured endpoint
         if ([ENAPI isSecuredEndpoint:self.endpoint]) {
             [self _includeOAuthParams];
         }
-        self.request = [ASIHTTPRequest requestWithURL:[NSURL URLWithString:[self _constructURL]]];
-
+        self.request = [NSURLRequest requestWithURL:[NSURL URLWithString:[self _constructURL]]];
     }
 }
 

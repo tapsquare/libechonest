@@ -82,6 +82,7 @@
 @property (readonly) NSString *endpoint;
 @property (readonly) NSURL *requestURL;
 @property (retain,readonly) NSMutableDictionary *params;
+@property (retain) NSURLConnection *connection;
 /* set this property to store app-specific information (request type, etc.) with the request */
 @property (retain) NSDictionary *userInfo;
 
