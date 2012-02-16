@@ -51,7 +51,7 @@
 @property (retain) NSHTTPURLResponse *internalResponse;
 @property (retain) NSError *internalError;
 @property (retain) NSMutableURLRequest *request;
-@property (assign) NSMutableData *receivedData;
+@property (retain) NSMutableData *receivedData;
 @property (retain,readwrite) NSMutableDictionary *params;
 @property (retain) NSDictionary *_responseDict;
 @property (retain) NSString *_responseString;
@@ -60,13 +60,14 @@
 @end
 
 @implementation ENAPIRequest
+
 @synthesize delegate, response, _responseDict, _responseString, endpoint;
 @synthesize request, params;
-@synthesize connection;
 @synthesize userInfo;
 @synthesize isAPIRequest;
 @synthesize analysisURL;
-@synthesize receivedData;
+@synthesize connection = _connection;
+@synthesize receivedData = _receivedData;
 @synthesize complete = _complete;
 @synthesize internalResponse = _internalResponse;
 @synthesize internalError = _internalError;
@@ -114,9 +115,9 @@
     [endpoint release];
     [userInfo release];
     [analysisURL release];
-    [connection release];
+    [_connection release];
     [_internalError release];
-    [receivedData release];
+    [_receivedData release];
     [super dealloc];
 }
 
@@ -203,7 +204,7 @@
 
 - (void) connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response_ {
     self.internalResponse = (NSHTTPURLResponse *)response_;
-    self.receivedData = [[NSMutableData alloc] initWithLength:0];
+    self.receivedData = [[[NSMutableData alloc] initWithLength:0] autorelease];
 }
 
 - (void) connection:(NSURLConnection *)connection didReceiveData:(NSData *)data_ {
@@ -214,7 +215,7 @@
     _complete = YES;
     self.internalError = error_;
     // we're done with mutable data holder
-    [self.receivedData release];
+    [_receivedData release];
     // deliver the bad news...
     [self _requestFailed];
 }
@@ -225,7 +226,7 @@
     _responseString = [[NSString alloc] initWithData:self.receivedData
                                             encoding:NSUTF8StringEncoding];
     // we're done with mutable data holder
-    [self.receivedData release];
+    [_receivedData release];
 
     [self _requestFinished];
     // Should we release the connection here? [AJL]
