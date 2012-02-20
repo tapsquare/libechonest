@@ -60,6 +60,7 @@
 
 - (void)startSynchronous;
 - (void)startAsynchronous;
+- (void)startAsynchronousAndScheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode;
 - (void)setValue:(id)value forParameter:(NSString *)param;
 - (void)setIntegerValue:(NSInteger)value forParameter:(NSString *)param;
 - (void)setFloatValue:(float)value forParameter:(NSString *)param;

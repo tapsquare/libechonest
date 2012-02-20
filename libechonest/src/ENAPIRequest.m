@@ -112,9 +112,17 @@
 }
 
 - (void)startAsynchronous {
+    [self startAsynchronousAndScheduleInRunLoop:[NSRunLoop currentRunLoop]
+                                        forMode:NSDefaultRunLoopMode];
+}
+
+- (void)startAsynchronousAndScheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode {
     [self _prepareToStart];
-    self.request.delegate = self;
-    [self.request startAsynchronous];
+
+    self.connection = [NSURLConnection connectionWithRequest:self.request
+                                                 delegate:self];
+    [self.connection scheduleInRunLoop:runLoop forMode:mode];
+    [self.connection start];
 }
 
 - (void)setValue:(id)value forParameter:(NSString *)param {
