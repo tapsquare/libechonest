@@ -126,6 +126,7 @@
 }
 
 + (ENAPIPostRequest *)catalogCreateWithName:(NSString *)name type:(NSString *)type {
+    CHECK_API_KEY
     NSString *urlString = [NSString stringWithFormat:@"%@catalog/create", ECHONEST_API_URL];
     NSURL *url = [NSURL URLWithString:urlString];
     
@@ -136,6 +137,7 @@
 }
 
 + (ENAPIPostRequest *)catalogDeleteWithID:(NSString *)ID {
+    CHECK_API_KEY
     NSString *urlString = [NSString stringWithFormat:@"%@catalog/delete", ECHONEST_API_URL];
     NSURL *url = [NSURL URLWithString:urlString];
     
@@ -145,6 +147,7 @@
 }
 
 + (ENAPIPostRequest *)catalogUpdateWithID:(NSString *)ID data:(NSString *)json {
+    CHECK_API_KEY
     NSString *urlString = [NSString stringWithFormat:@"%@catalog/update", ECHONEST_API_URL];
     NSURL *url = [NSURL URLWithString:urlString];
     
