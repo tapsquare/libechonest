@@ -67,7 +67,7 @@
     
     self = [super init];
     if (self) {
-        self.request = [NSURLRequest requestWithURL:url];
+        self.request = [NSMutableURLRequest requestWithURL:url];
 
         [self.request setHTTPMethod:@"POST"];
         [self.request setTimeoutInterval:180];
@@ -169,14 +169,14 @@
 
 - (void)setPostValue:(NSObject *)value forKey:(NSString *)key {
     if (nil == _postValues) {
-        self.postValues = [[NSMutableDictionary alloc] initWithCapacity:10];
+        self.postValues = [[[NSMutableDictionary alloc] initWithCapacity:10] autorelease];
     }
     [self.postValues setObject:value forKey:key];
 }
 
 - (void)setFile:(NSString *)path forKey:(NSString *)key {
     if (nil == _fileData) {
-        self.fileData = [[NSMutableDictionary alloc] initWithCapacity:5];
+        self.fileData = [[[NSMutableDictionary alloc] initWithCapacity:5] autorelease];
     }
     NSString *filename = [path lastPathComponent];
     NSDictionary *fileInfo = [NSDictionary dictionaryWithObjectsAndKeys:path, @"path",
@@ -203,6 +203,11 @@
 }
 
 - (void)startAsynchronous {
+    [self startAsynchronousAndScheduleInRunLoop:[NSRunLoop currentRunLoop]
+                                        forMode:NSDefaultRunLoopMode];
+}
+
+- (void)startAsynchronousAndScheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode {
     [self retain]; // let's make sure we're still around when the network call returns
 
     [self _preparePostBody];
@@ -210,7 +215,7 @@
     self.connection = [NSURLConnection connectionWithRequest:self.request
                                                     delegate:self];
 
-    // Schedule in the RunLoop
+    [self.connection scheduleInRunLoop:runLoop forMode:mode];
     [self.connection start];
 }
 
@@ -313,14 +318,12 @@
     if ([self.delegate respondsToSelector:@selector(postRequestFinished:)]) {
         [(id<ENAPIPostRequestDelegate>)self.delegate postRequestFinished:self];
     }
-    [self release];
 }
 
 - (void)_requestFailed {
     if ([self.delegate respondsToSelector:@selector(postRequestFailed:)]) {
         [(id<ENAPIPostRequestDelegate>)self.delegate postRequestFailed:self];
     }
-    [self release];
 }
 
 #pragma mark - Properties

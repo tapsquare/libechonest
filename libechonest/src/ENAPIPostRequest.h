@@ -80,7 +80,11 @@
 - (void)setPostValue:(NSObject *)value forKey:(NSString *)key;
 - (void)setFile:(NSString *)path forKey:(NSString *)key;
 - (void)startSynchronous;
+/**
+ * Executes request asynchronously schedule in the current run loop and default mode.
+ */
 - (void)startAsynchronous;
+- (void)startAsynchronousAndScheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode;
 
 @property (assign) NSObject *delegate;
 @property (readonly) NSDictionary *response;
